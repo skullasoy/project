@@ -1,18 +1,19 @@
-// js/user/login.js
 import { supabase } from "../../supabase.js";
+import { showAlert } from "./user.js";
 
 const form = document.getElementById("login-form");
 
-form?.addEventListener("submit", async (e) => {
+form.onsubmit = async (e) => {
   e.preventDefault();
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
+  const email = form.email.value;
+  const password = form.password.value;
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
+
   if (error) {
-    alert("Login gagal: " + error.message);
+    showAlert("Login gagal!", "error");
   } else {
-    alert("Login berhasil!");
+    showAlert("Login berhasil!", "success");
     window.location.href = "dashboard.html";
   }
-});
+};
