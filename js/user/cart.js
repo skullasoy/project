@@ -1,65 +1,80 @@
-// js/user/cart.js
+import { checkUserSession, getCart, saveCart, showAlert } from "./user.js";
 import { supabase } from "../../supabase.js";
 
-const cartList = document.getElementById("cart-list");
-const checkoutBtn = document.getElementById("checkout");
+checkUserSession();
 
-function loadCart() {
-  let cart = JSON.parse(localStorage.getItem("cart")) || [];
-  cartList.innerHTML = cart.map((item, i) => `
-    <tr>
-      <td>${item.name}</td>
-      <td><input type="number" value="${item.qty}" min="1" onchange="updateQty(${i}, this.value)"></td>
-      <td>Rp ${item.price * item.qty}</td>
-      <td><button onclick="removeItem(${i})">Hapus</button></td>
-    </tr>
-  `).join("");
-}
+const cartTable = document.getElementById("cart-table");
+const checkoutBtn = document.getElementById("checkout-btn");
 
-window.updateQty = function (index, qty) {
-  let cart = JSON.parse(localStorage.getItem("cart")) || [];
-  cart[index].qty = parseInt(qty);
-  localStorage.setItem("cart", JSON.stringify(cart));
-  loadCart();
-};
+function renderCart() {
+  const cart = getCart();
+  cartTable.innerHTML = "";
+  let total = 0;
 
-window.removeItem = function (index) {
-  let cart = JSON.parse(localStorage.getItem("cart")) || [];
-  cart.splice(index, 1);
-  localStorage.setItem("cart", JSON.stringify(cart));
-  loadCart();
-};
-
-checkoutBtn?.addEventListener("click", async () => {
-  let cart = JSON.parse(localStorage.getItem("cart")) || [];
-  if (cart.length === 0) return alert("Keranjang kosong!");
-
-  const username = prompt("Masukkan nama pembeli:");
-  const whatsapp = prompt("Masukkan nomor WhatsApp:");
-  const telegram = prompt("Masukkan username Telegram (opsional):");
-
-  if (!username || !whatsapp) {
-    alert("Data tidak lengkap!");
+  if (!cart.length) {
+    cartTable.innerHTML = "<p>Keranjang kosong.</p>";
     return;
   }
 
-  for (let item of cart) {
-    await supabase.from("orders").insert([{
-      user_id: supabase.auth.getUser().data?.user?.id,
-      username,
-      whatsapp,
-      telegram,
-      product_id: item.id,
-      product_name: item.name,
-      qty: item.qty,
-      subtotal: item.price * item.qty,
-      status: "pending"
-    }]);
+  cart.forEach((item, i) => {
+    total += item.price * item.qty;
+    const row = document.createElement("div");
+    row.className = "cart-row";
+    row.innerHTML = `
+      <span>${item.name}</span>
+      <input type="number" value="${item.qty}" min="1" data-index="${i}">
+      <span>Rp${(item.price * item.qty).toLocaleString()}</span>
+    `;
+    row.querySelector("input").onchange = (e) => {
+      const cart = getCart();
+      cart[i].qty = parseInt(e.target.value) || 1;
+      saveCart(cart);
+      renderCart();
+    };
+    cartTable.appendChild(row);
+  });
+
+  const totalRow = document.createElement("div");
+  totalRow.className = "cart-total";
+  totalRow.innerHTML = `<strong>Total: Rp${total.toLocaleString()}</strong>`;
+  cartTable.appendChild(totalRow);
+}
+
+checkoutBtn.onclick = async () => {
+  const cart = getCart();
+  if (!cart.length) {
+    showAlert("Keranjang kosong!", "error");
+    return;
   }
 
-  localStorage.removeItem("cart");
-  alert("Pesanan berhasil dibuat!");
-  window.location.href = "history.html";
-});
+  const nama = prompt("Masukkan nama pembeli:");
+  const wa = prompt("Masukkan nomor WhatsApp:");
+  const tg = prompt("Masukkan username Telegram (opsional):") || null;
 
-loadCart();
+  if (!nama || !wa) {
+    showAlert("Nama dan WhatsApp wajib diisi!", "error");
+    return;
+  }
+
+  const subtotal = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
+
+  const { error } = await supabase.from("orders").insert([{
+    user_name: nama,
+    whatsapp: wa,
+    telegram: tg,
+    items: cart,
+    status: "pending",
+    subtotal
+  }]);
+
+  if (error) {
+    console.error(error);
+    showAlert("Gagal checkout!", "error");
+  } else {
+    saveCart([]);
+    renderCart();
+    showAlert("Pesanan berhasil dibuat!", "success");
+  }
+};
+
+renderCart();
