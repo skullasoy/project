@@ -1,26 +1,19 @@
-// js/user/register.js
 import { supabase } from "../../supabase.js";
+import { showAlert } from "./user.js";
 
 const form = document.getElementById("register-form");
 
-form?.addEventListener("submit", async (e) => {
+form.onsubmit = async (e) => {
   e.preventDefault();
-  const username = document.getElementById("username").value;
-  const whatsapp = document.getElementById("whatsapp").value;
-  const telegram = document.getElementById("telegram").value;
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
+  const email = form.email.value;
+  const password = form.password.value;
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { username, whatsapp, telegram, role: "user" } }
-  });
+  const { error } = await supabase.auth.signUp({ email, password });
 
   if (error) {
-    alert("Register gagal: " + error.message);
+    showAlert("Registrasi gagal!", "error");
   } else {
-    alert("Register berhasil! Silakan login.");
+    showAlert("Registrasi berhasil, silakan login!", "success");
     window.location.href = "login.html";
   }
-});
+};
