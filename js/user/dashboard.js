@@ -1,82 +1,86 @@
-// js/user/dashboard.js
+import { checkUserSession, getCart, saveCart, showAlert } from "./user.js";
 import { supabase } from "../../supabase.js";
 
-const productList = document.getElementById("product-list");
-const announcementList = document.getElementById("announcement-list");
+checkUserSession(false); // boleh lihat walau belum login
 
-// ✅ load announcement
-async function loadAnnouncements() {
-  const { data, error } = await supabase.from("announcements").select("*").order("id", { ascending: false });
-  if (error) {
-    console.error("Error loading announcements:", error.message);
-    return;
-  }
-  announcementList.innerHTML = data.map(a => `
-    <div class="card">
-      <h3>${a.title}</h3>
-      <p>${a.content}</p>
-    </div>
-  `).join("");
-}
+const productList = document.getElementById("product-list");
+const announcementBox = document.getElementById("announcement");
 
 // ✅ load produk
 async function loadProducts() {
-  const { data, error } = await supabase.from("products").select("*").order("id");
-  if (error) {
-    console.error("Error loading products:", error.message);
+  const { data, error } = await supabase.from("products").select("*");
+  if (error) return console.error(error);
+
+  if (!data.length) {
+    productList.innerHTML = "<p>Tidak ada produk.</p>";
     return;
   }
 
-  productList.innerHTML = data.map(p => `
-    <div class="card">
+  productList.innerHTML = "";
+  data.forEach((p) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
       <img src="${p.image_url}" alt="${p.name}">
       <h3>${p.name}</h3>
-      <p>Rp ${p.price}</p>
-      <button onclick="addToCart(${p.id}, '${p.name}', ${p.price})">Masukkan Keranjang</button>
-      <button onclick="buyNow(${p.id}, '${p.name}', ${p.price})">Buy</button>
-    </div>
-  `).join("");
+      <p>Rp${p.price.toLocaleString()}</p>
+      <button class="buy-btn">BUY</button>
+      <button class="cart-btn">+ Keranjang</button>
+    `;
+    card.querySelector(".buy-btn").onclick = () => buyNow(p);
+    card.querySelector(".cart-btn").onclick = () => addToCart(p);
+    productList.appendChild(card);
+  });
 }
 
-// ✅ simpan keranjang ke localStorage
-window.addToCart = function (id, name, price) {
-  let cart = JSON.parse(localStorage.getItem("cart")) || [];
-  cart.push({ id, name, price, qty: 1 });
-  localStorage.setItem("cart", JSON.stringify(cart));
-  alert("Produk masuk ke keranjang!");
-};
+// ✅ tambah ke cart
+function addToCart(product) {
+  const cart = getCart();
+  const found = cart.find((c) => c.id === product.id);
+  if (found) {
+    found.qty += 1;
+  } else {
+    cart.push({ ...product, qty: 1 });
+  }
+  saveCart(cart);
+  showAlert("Produk ditambahkan ke keranjang!", "success");
+}
 
 // ✅ langsung beli
-window.buyNow = function (id, name, price) {
-  const username = prompt("Masukkan nama pembeli:");
-  const whatsapp = prompt("Masukkan nomor WhatsApp:");
-  const telegram = prompt("Masukkan username Telegram (opsional):");
+async function buyNow(product) {
+  const nama = prompt("Masukkan nama pembeli:");
+  const wa = prompt("Masukkan nomor WhatsApp:");
+  const tg = prompt("Masukkan username Telegram (opsional):") || null;
 
-  if (!username || !whatsapp) {
-    alert("Data tidak lengkap!");
+  if (!nama || !wa) {
+    showAlert("Nama dan WhatsApp wajib diisi!", "error");
     return;
   }
 
-  supabase.from("orders").insert([{
-    user_id: supabase.auth.getUser().data?.user?.id,
-    username,
-    whatsapp,
-    telegram,
-    product_id: id,
-    product_name: name,
-    qty: 1,
-    subtotal: price,
-    status: "pending"
-  }]).then(({ error }) => {
-    if (error) {
-      alert("Gagal membuat pesanan: " + error.message);
-    } else {
-      alert("Pesanan berhasil dibuat!");
-      window.location.href = "history.html";
-    }
-  });
-};
+  const { error } = await supabase.from("orders").insert([{
+    user_name: nama,
+    whatsapp: wa,
+    telegram: tg,
+    items: [{ id: product.id, name: product.name, price: product.price, qty: 1 }],
+    status: "pending",
+    subtotal: product.price
+  }]);
 
-// load saat pertama kali
-loadAnnouncements();
+  if (error) {
+    console.error(error);
+    showAlert("Gagal checkout!", "error");
+  } else {
+    showAlert("Pesanan berhasil dibuat!", "success");
+  }
+}
+
+// ✅ load announcement
+async function loadAnnouncement() {
+  const { data } = await supabase.from("announcements").select("*").order("created_at", { ascending: false }).limit(1);
+  if (data && data.length) {
+    announcementBox.innerHTML = `<p><b>Pengumuman:</b> ${data[0].message}</p>`;
+  }
+}
+
 loadProducts();
+loadAnnouncement();
