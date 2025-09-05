@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Kelola Produk</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <nav>
+    <a href="dashboard.html">Beranda</a>
+    <a href="kelola-produk.html">Kelola Produk</a>
+    <a href="kelola-pesanan.html">Kelola Pesanan</a>
+    <a href="logout.html">Logout</a>
+  </nav>
+
+  <main>
+    <h1>Kelola Produk</h1>
+
+    <form id="add-product-form">
+      <input type="text" id="product-name" placeholder="Nama Produk" required>
+      <input type="number" id="product-price" placeholder="Harga" required>
+      <input type="text" id="product-image" placeholder="URL Gambar" required>
+      <button type="submit">Tambahkan Produk</button>
+    </form>
+
+    <table border="1">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nama</th>
+          <th>Harga</th>
+          <th>Gambar</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody id="product-list"></tbody>
+    </table>
+  </main>
+
+  <script type="module" src="../supabase.js"></script>
+  <script type="module" src="../js/admin/admin.js"></script>
+  <script type="module" src="../js/admin/admin-products.js"></script>
+</body>
+</html>
